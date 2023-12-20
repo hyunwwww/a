@@ -1,0 +1,11 @@
+# 티스토리 ID, SECRET, 토큰을 관리합니다.
+
+CLIENT_ID=
+CLIENT_SECRET=
+ACCESS_TOKEN=
+
+
+
+# 구글시트 api key
+
+creds = 
