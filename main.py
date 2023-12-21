@@ -41,16 +41,28 @@ values = result.get('values', [])
 
 # 각 행에 대해 블로그 게시
 for i, row in enumerate(values, start=1):
-    # J열이 빈 셀인 경우를 고려하여 길이 확인
-    if len(row) < 9 or row[8] != "완료":  # J열 확인
+    # L열(완료열)이 빈 셀인 경우를 고려하여 길이 확인
+    if len(row) < 11 or row[10] != "완료":  # L열 확인
         title = row[0]     # B열: 제목
 
         # 내용 구성: G, D, H, E, F 열의 데이터 및 스타일
         content = f'<div style="text-align: center; font-size: 13pt;">\n'
-        content += f'<img src="{row[5]}" />\n<br><br><br>'   # 메인 이미지 URL
-        content += f'<p>{row[2]}</p>\n\n\n'          # 게시물 본문
-        content += f'<img src="{row[6]}" />\n<br><br>'   # 서브 이미지 URL
-        content += f'<p>{row[3]}</p>\n<br><br>'          # 게시물 요약
+
+        content += f'<img src="{row[5]}" />\n<br><br><br><br><br>'   # 메인 이미지 URL
+        content += f'<br><br><br><br>'
+        content += f'<p>{row[8]}</p>\n\n\n<br><br>'          # 서론
+        content += f'<br><br><br><br>'
+        content += f'<p>{row[2]}</p>\n\n\n<br><br>'          # 게시물 본문
+        content += f'<br><br><br><br>'
+        content += f'<img src="{row[6]}" />\n<br><br><br><br>'   # 서브 이미지 URL
+        content += f'<br><br><br><br>'  
+        content += f'<p>{row[3]}</p>\n<br><br><br><br>'          # 게시물 요약
+        content += f'<br><br><br><br>'
+        content += f'<img src="{row[7]}" />\n<br><br><br><br>'   # 서브 이미지2 URL
+        content += f'<br><br><br><br>'
+        content += f'<p>{row[9]}</p>\n<br><br><br><br>'          # 포스팅 클로징멘트
+
+
         tags = row[4]                   # 태그
         content += '</div>'            # F열: 태그
                   
@@ -104,13 +116,10 @@ for i, row in enumerate(values, start=1):
         # 업로드 완료 표시
         sheet.values().update(
             spreadsheetId=SPREADSHEET_ID, 
-            range=f"Sheet1!J{i+3}",  # 완료표기 시작되는 올바른 셀 위치 지정
+            range=f"Sheet1!L{i+3}",  # 완료표기 시작되는 올바른 셀 위치 지정
             valueInputOption="RAW", 
             body={"values": [["완료"]]}
         ).execute()
 
-
-            # API 응답 전체 출력
-        print(response.text)
 
 
