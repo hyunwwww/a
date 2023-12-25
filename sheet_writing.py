@@ -6,9 +6,7 @@ import os
 import openai
 import config
 import prompts
-
-
-
+import time
 
 # Google Sheets API 설정
 SERVICE_ACCOUNT_FILE = 'C:/Users/LG/Documents/json_keys/peak-vista-382911-d8c6841af269.json'  # 서비스 계정 파일의 경로
@@ -30,10 +28,8 @@ sheet = service.spreadsheets()
 # gspread 클라이언트 초기화
 client = gspread.authorize(creds)
 
-
 # OpenAI API 설정
 openai.api_key = os.getenv('OPENAI_API_KEY')
-
 
 # Google Sheets에서 데이터 읽기
 SPREADSHEET_ID = config.SPREADSHEET_ID
@@ -43,42 +39,145 @@ sub_concept = sheet.acell('D2').value
 rangename = config.RANGE_NAME.split('!')[1]  # 'Sheet1!B4:P200'에서 'B4:P200'만 추출
 cells = sheet.range(rangename)
 
+### 제목 생성 (B열) ###
 
-# 새로운 포스트 작성 및 업데이트
-for i in range(0, len(cells), 11):  # 11개의 열로 구성된 행을 순회
-    if cells[i].value == '':  # 첫 번째 열 (B열)이 비어있는 경우
+row = 4
+titles_to_create = []  # 생성할 제목을 저장할 리스트
+max_row = 20
+
+# 제목 목록 생성 (한 번만 수행)
+if not titles_to_create:
+    title_prompt = prompts.TITLE_PROMPT_TEMPLATE.format(main_concept=main_concept, sub_concept=sub_concept)
+    title_response = openai.ChatCompletion.create(
+        model='gpt-3.5-turbo',
+        messages=[{"role": "system", "content": title_prompt}]
+    )
+    titles = title_response.choices[0].message['content'].strip().split('\n')
+    titles_to_create.extend([title.strip().lstrip('0123456789.-*# ') for title in titles if title.strip()])
+
+    print(titles_to_create)
+
+    # 첫 번째 빈 행 찾기
+    for i in range(4, max_row):
+        title_cell = f"B{i}"   # B열의 셀 주소 (예: B4, B5, ...)
+        title = sheet.acell(title_cell).value   # B열에서 제목 읽기
+        if not title:
+            row = i    
+            break 
+
+    # B열에 제목 입력
+    for title in titles_to_create:
+        title_cell = f"B{row}"
+        sheet.update_acell(title_cell, title)  
+        row += 1
+                
+        ### 본문 글 작성 (D열) ###
+
+        row = 4
+        for i in range(4, max_row):
+            title_cell = f"B{i}"  # B열의 셀 주소 (예: B4, B5, ...)
+            title = sheet.acell(title_cell).value  # B열에서 제목 읽기
+
+            body_cell = f"D{i}"
+            existing_data = sheet.acell(body_cell).value
+
+            if title and not existing_data:
+
+                # 본문 프롬프트 생성 및 API 호출
+                body_prompt = prompts.BODY_PROMPT_TEMPLATE.format(
+                    title=title, main_concept=main_concept
+                )
+                body_response = openai.ChatCompletion.create(
+                    model='gpt-3.5-turbo',
+                    messages=[{"role": "system", "content": body_prompt}]
+                )
+                body = body_response.choices[0].message['content'].strip()
+                
+                # Google Sheets에 본문 기록
+                sheet.update_acell(body_cell, body) # 열 D에 데이터를 기록합니다
+
+            time.sleep(1)
+
+            ### 요약 작성 시작 (E열) ###
+            
+            # 열 D에서 제목 가져오기
+            body_cell = f"D{i}"
+            body = sheet.acell(body_cell).value
+
+            # E열 기존 데이터 확인
+            summary_cell = f"E{i}"
+            existing_data = sheet.acell(summary_cell).value
+
+            if not existing_data and body: 
+                # OpenAI API를 사용하여 열 D에 들어갈 내용 생성
+                summary_prompt = prompts.SUMMARY_PROMPT_TEMPLATE.format(content=body)
+                summary_response = openai.ChatCompletion.create(
+                    model='gpt-3.5-turbo',
+                    messages=[{"role": "system", "content": summary_prompt}]
+                )
+                summary = summary_response.choices[0].message['content'].strip()
+
+                # 열 E에 내용 기록
+                sheet.update_acell(summary_cell, summary)
+
+            time.sleep(1)
+
+
+            ### 태그 작성 (F열) ###
+            
+            # 열 D에서 내용 가져오기
+            body_cell = f"D{i}"
+            body = sheet.acell(body_cell).value
+
+            # F열 기존 데이터 확인
+            tag_cell = f"F{i}"
+            existing_data = sheet.acell(tag_cell).value
+
+            if not existing_data and body: 
+                # OpenAI API를 사용하여 열 F에 들어갈 내용 생성
+                tag_prompt = prompts.TAG_PROMPT_TEMPLATE.format(content=body)
+                tag_response = openai.ChatCompletion.create(
+                    model='gpt-3.5-turbo',
+                    messages=[{"role": "system", "content": tag_prompt}]
+                )
+                tag = tag_response.choices[0].message['content'].strip()
+
+                # 열 F에 내용 기록
+                sheet.update_acell(tag_cell, tag)
+
+            time.sleep(1)
+
+
+            ### 카테고리 (C열) ###
+            
+            # 열 D에서 내용 가져오기
+            body_cell = f"D{i}"
+            body = sheet.acell(body_cell).value
+
+            # F열 기존 데이터 확인
+            category_cell = f"C{i}"
+            existing_data = sheet.acell(category_cell).value
+
+            if not existing_data and body: 
+                # OpenAI API를 사용하여 열 C에 들어갈 내용 생성
+                category_prompt = prompts.CATEGORY_PROMPT_TEMPLATE.format(content=body)
+                category_response = openai.ChatCompletion.create(
+                    model='gpt-3.5-turbo',
+                    messages=[{"role": "system", "content": category_prompt}]
+                )
+                category = category_response.choices[0].message['content'].strip()
+
+                # 열 C에 내용 기록
+                sheet.update_acell(category_cell, category)
+
+            time.sleep(1)
+
+            row += 1
+
+        if row >= max_row:
+            break
         
-        # 제목 프롬프트 생성 및 API 호출
-        title_prompt = prompts.TITLE_PROMPT_TEMPLATE.format(
-            main_concept=main_concept, 
-            sub_concept=sub_concept
-        )
-        title_response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=title_prompt, 
-            max_tokens=140
-        )
-        title = title_response.choices[0].text.strip()
+ 
 
-        # 제목을 B열에 먼저 기록
-        cells[i].value = title
 
-        # 본문 프롬프트 생성 및 API 호출
-        body_prompt = prompts.BODY_PROMPT_TEMPLATE.format(
-            title=title, 
-            main_concept=main_concept, 
-            sub_concept=sub_concept
-        )
-        body_response = openai.Completion.create(
-            engine="text-davinci-003",              
-            prompt=body_prompt, 
-            max_tokens=3000
-        )
-        body = body_response.choices[0].text.strip()
 
-        # 본문을 D열에 기록
-        cells[i+2].value = body  # D열에 본문 기록
-
-        # 제목과 본문이 모두 기록된 후에 변경 사항 저장
-        sheet.update_cells(cells)
-        break  # 하나의 포스트만 작성
