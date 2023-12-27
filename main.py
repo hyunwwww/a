@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import os
 import config
 import requests
+import markdown
 
 # .env 파일에서 환경변수 불러오기
 load_dotenv()
@@ -39,41 +40,65 @@ result = sheet.values().get(
 ).execute()
 values = result.get('values', [])
 
+
+
 # 각 행에 대해 블로그 게시
 for i, row in enumerate(values, start=1):
     # L열(완료열)이 빈 셀인 경우를 고려하여 길이 확인
     if len(row) < 11 or row[10] != "완료":  # L열 확인
+        
         title = row[0]     # B열: 제목
 
-        # 내용 구성: G, D, H, E, F 열의 데이터 및 스타일
-        content = f'<div style="text-align: center; font-size: 13pt;">\n'
+        # 전체 콘텐츠를 마크다운 형식으로 작성
+        content = ""
 
-        content += f'<img src="{row[5]}" />\n<br><br><br><br><br>'   # 메인 이미지 URL
-        content += f'<br><br><br><br>'
-        content += f'<p>{row[8]}</p>\n\n\n<br><br>'          # 서론
-        content += f'<br><br><br><br>'
-        content += f'<p>{row[2]}</p>\n\n\n<br><br>'          # 게시물 본문
-        content += f'<br><br><br><br>'
-        content += f'<img src="{row[6]}" />\n<br><br><br><br>'   # 서브 이미지 URL
-        content += f'<br><br><br><br>'  
-        content += f'<p>{row[3]}</p>\n<br><br><br><br>'          # 게시물 요약
-        content += f'<br><br><br><br>'
-        content += f'<img src="{row[7]}" />\n<br><br><br><br>'   # 서브 이미지2 URL
-        content += f'<br><br><br><br>'
-        content += f'<p>{row[9]}</p>\n<br><br><br><br>'          # 포스팅 클로징멘트
+        # 서두 (마크다운 형식)
+        markdown_introduction = row[8]  # 서두
+        content += markdown.markdown(markdown_introduction)
+        content += '\n\n'
+        content += '<br>' * 5
 
+        # 메인 이미지 (HTML 형식)
+        content += f'  <img src="{row[5]}" style="display: block; margin: auto; width: 90%;" />\n'  # 메인 이미지 URL
+        content += '<br>' * 5
 
-        tags = row[4]                   # 태그
-        content += '</div>'            # F열: 태그
-                  
+        # 본문 (마크다운 형식)
+        markdown_body = row[2]  # 마크다운 본문
+        content += markdown.markdown(markdown_body)
+        content += '\n\n'
+        content += '<br>' * 5
+
+        # 부가 이미지 1 (HTML 형식)
+        content += f'<img src="{row[6]}" style="display: block; margin: auto; width: 75%;" />\n'  # 부가 이미지 1 URL
+        content += '<br>' * 5
+
+        # 요약 (마크다운 형식)
+        markdown_summary = row[3]  # 요약
+        content += markdown.markdown(markdown_summary)
+        content += '\n\n'
+        content += '<br>' * 5
+
+        # 부가 이미지 2 (HTML 형식)
+        content += f'<img src="{row[7]}" style="display: block; margin: auto; width: 75%;" />\n'  # 부가 이미지 2 URL
+        content += '<br>' * 5
+
+        # 마무리 코멘트 (마크다운 형식)
+        markdown_closing_comment = row[9]  # 마무리 코멘트
+        content += markdown.markdown(markdown_closing_comment)
+        content += '\n\n'
+        content += '<br>' * 3
+        
+        tags = row[4] # tags            
+
 
         # 카테고리 관련 파라메터 요청
         # 카테고리 목록 가져오기
         url = 'https://www.tistory.com/apis/category/list'
         params = { 
             'access_token': os.getenv('ACCESS_TOKEN'),
+            'output': 'json' ,
             'blogName': config.blog_name,
-            'output': 'json' 
+
         }
 
         response = requests.get(url, params=params)
