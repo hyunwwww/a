@@ -64,7 +64,10 @@ if not titles_to_create:
     titles = title_response.choices[0].message['content'].strip().split('\n')
     titles_to_create.extend([title.strip().lstrip('0123456789.-*# ') for title in titles if title.strip()])
 
+    list_length = len(titles_to_create)
     print(titles_to_create)
+    print(f"리스트에 생성된 제목의 수: {list_length}")
+
 
 # 각 행에 순차적으로 채우기
 for i in range(row, row + len(titles_to_create)):
